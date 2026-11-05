@@ -63,5 +63,20 @@ app.delete("/api/tasks/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
+// 临时诊断接口：读取 PostgREST OpenAPI 中 tasks 表的真实字段（确认后删除）
+app.get("/api/debug/schema", async (req, res) => {
+  const r = await fetch(SUPABASE_URL + "/rest/v1/", {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: "Bearer " + SUPABASE_ANON_KEY,
+    },
+  });
+  const spec = await r.json();
+  const def =
+    (spec.definitions && spec.definitions.tasks) ||
+    (spec.components && spec.components.schemas && spec.components.schemas.tasks);
+  res.json(def ? Object.keys(def.properties || {}) : spec);
+});
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`服务已启动: http://localhost:${port}`));
