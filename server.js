@@ -63,19 +63,20 @@ app.delete("/api/tasks/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
-// 临时诊断接口：读取 PostgREST OpenAPI 中 tasks 表的真实字段（确认后删除）
+// 临时诊断接口：逐列探测 tasks 表真实字段（确认后删除）
 app.get("/api/debug/schema", async (req, res) => {
-  const r = await fetch(SUPABASE_URL + "/rest/v1/", {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: "Bearer " + SUPABASE_ANON_KEY,
-    },
-  });
-  const spec = await r.json();
-  const def =
-    (spec.definitions && spec.definitions.tasks) ||
-    (spec.components && spec.components.schemas && spec.components.schemas.tasks);
-  res.json(def ? Object.keys(def.properties || {}) : spec);
+  const cands = [
+    "id", "title", "priority", "done", "is_done", "completed",
+    "is_completed", "complete", "status", "finished", "created_at",
+    "created_time", "create_time", "updated_at", "name", "task",
+    "content", "description",
+  ];
+  const out = {};
+  for (const c of cands) {
+    const { error } = await supabase.from("tasks").select(c).limit(1);
+    out[c] = !error || !/does not exist|schema cache/i.test(error.message);
+  }
+  res.json(out);
 });
 
 const port = process.env.PORT || 3000;
