@@ -36,7 +36,11 @@ app.post("/api/tasks", async (req, res) => {
   }
   const { data, error } = await supabase
     .from("tasks")
-    .insert({ title: String(title).trim(), priority: priority || "中", done: false })
+    .insert({
+      title: String(title).trim(),
+      priority: priority || "中",
+      completed: false,
+    })
     .select()
     .single();
   if (error) return res.status(500).json({ error: error.message });
@@ -45,10 +49,10 @@ app.post("/api/tasks", async (req, res) => {
 
 // 切换完成状态
 app.patch("/api/tasks/:id", async (req, res) => {
-  const { done } = req.body || {};
+  const { completed } = req.body || {};
   const { data, error } = await supabase
     .from("tasks")
-    .update({ done: !!done })
+    .update({ completed: !!completed })
     .eq("id", req.params.id)
     .select()
     .single();
@@ -61,22 +65,6 @@ app.delete("/api/tasks/:id", async (req, res) => {
   const { error } = await supabase.from("tasks").delete().eq("id", req.params.id);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ ok: true });
-});
-
-// 临时诊断接口：逐列探测 tasks 表真实字段（确认后删除）
-app.get("/api/debug/schema", async (req, res) => {
-  const cands = [
-    "id", "title", "priority", "done", "is_done", "completed",
-    "is_completed", "complete", "status", "finished", "created_at",
-    "created_time", "create_time", "updated_at", "name", "task",
-    "content", "description",
-  ];
-  const out = {};
-  for (const c of cands) {
-    const { error } = await supabase.from("tasks").select(c).limit(1);
-    out[c] = !error || !/does not exist|schema cache/i.test(error.message);
-  }
-  res.json(out);
 });
 
 const port = process.env.PORT || 3000;

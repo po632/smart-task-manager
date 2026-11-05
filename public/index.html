@@ -108,7 +108,7 @@ function render() {
   $("emptyTip").style.display = shown.length ? "none" : "block";
   shown.forEach((t) => {
     const li = document.createElement("li");
-    if (t.done) li.className = "done";
+    if (t.completed) li.className = "done";
 
     const span = document.createElement("span");
     span.className = "title";
@@ -120,7 +120,7 @@ function render() {
 
     const toggle = document.createElement("button");
     toggle.className = "btn-toggle";
-    toggle.textContent = t.done ? "已完成" : "未完成";
+    toggle.textContent = t.completed ? "已完成" : "未完成";
     toggle.onclick = () => toggleTask(t);
 
     const del = document.createElement("button");
@@ -165,7 +165,7 @@ async function toggleTask(t) {
     const res = await fetch("/api/tasks/" + t.id, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ done: !t.done }),
+      body: JSON.stringify({ completed: !t.completed }),
     });
     if (!res.ok) throw new Error((await res.json()).error || res.status);
     await load();
