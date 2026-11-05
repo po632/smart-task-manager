@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>智能任务管理系统</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    background: linear-gradient(160deg, #eef4ff 0%, #f8fafc 60%);
+    min-height: 100vh; color: #1f2937; padding: 40px 16px;
+  }
+  .container { max-width: 680px; margin: 0 auto; }
+  h1 { text-align: center; font-size: 28px; margin-bottom: 8px; }
+  .subtitle { text-align: center; color: #6b7280; font-size: 14px; margin-bottom: 28px; }
+  .card {
+    background: #fff; border-radius: 14px; padding: 20px;
+    box-shadow: 0 6px 24px rgba(30, 64, 175, .08); margin-bottom: 20px;
+  }
+  .add-row { display: flex; gap: 10px; }
+  .add-row input {
+    flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 15px; outline: none; transition: border .2s;
+  }
+  .add-row input:focus { border-color: #2563eb; }
+  select, button {
+    padding: 10px 14px; border-radius: 8px; font-size: 14px; cursor: pointer;
+  }
+  select { border: 1px solid #d1d5db; background: #fff; outline: none; }
+  .btn-add { background: #2563eb; color: #fff; border: none; font-weight: 600; }
+  .btn-add:hover { background: #1d4ed8; }
+  .filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filters button {
+    border: 1px solid #d1d5db; background: #fff; color: #374151;
+  }
+  .filters button.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+  ul { list-style: none; }
+  li {
+    display: flex; align-items: center; gap: 12px; padding: 12px 6px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  li:last-child { border-bottom: none; }
+  .title { flex: 1; font-size: 15px; word-break: break-all; }
+  li.done .title { text-decoration: line-through; color: #9ca3af; }
+  .badge {
+    font-size: 12px; padding: 3px 10px; border-radius: 999px; flex-shrink: 0;
+  }
+  .badge.高 { background: #fee2e2; color: #b91c1c; }
+  .badge.中 { background: #fef3c7; color: #b45309; }
+  .badge.低 { background: #dcfce7; color: #15803d; }
+  .btn-toggle { border: 1px solid #d1d5db; background: #fff; color: #374151; }
+  li.done .btn-toggle { background: #16a34a; border-color: #16a34a; color: #fff; }
+  .btn-del { border: 1px solid #fecaca; background: #fff5f5; color: #dc2626; }
+  .btn-del:hover { background: #dc2626; color: #fff; }
+  .empty { text-align: center; color: #9ca3af; padding: 30px 0; font-size: 14px; }
+  .error { background: #fef2f2; color: #b91c1c; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>智能任务管理系统</h1>
+  <p class="subtitle">Node.js + Express + Supabase 云端全栈应用</p>
+
+  <div class="card">
+    <div class="add-row">
+      <input id="taskInput" type="text" placeholder="输入新任务，回车或点击添加…" />
+      <select id="prioritySelect">
+        <option value="高">高</option>
+        <option value="中" selected>中</option>
+        <option value="低">低</option>
+      </select>
+      <button class="btn-add" id="addBtn">添加</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="filters" id="filters">
+      <button data-f="全部" class="active">全部</button>
+      <button data-f="高">高</button>
+      <button data-f="中">中</button>
+      <button data-f="低">低</button>
+    </div>
+    <div class="error" id="errorBox"></div>
+    <ul id="taskList"></ul>
+    <div class="empty" id="emptyTip">暂无任务，添加一条试试吧</div>
+  </div>
+</div>
+
+<script>
+let tasks = [];
+let filter = "全部";
+const $ = (id) => document.getElementById(id);
+
+function showError(msg) {
+  const box = $("errorBox");
+  box.textContent = "出错了：" + msg;
+  box.style.display = "block";
+}
+function clearError() { $("errorBox").style.display = "none"; }
+
+function render() {
+  const list = $("taskList");
+  const shown = tasks
+    .filter((t) => filter === "全部" || t.priority === filter)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  list.innerHTML = "";
+  $("emptyTip").style.display = shown.length ? "none" : "block";
+  shown.forEach((t) => {
+    const li = document.createElement("li");
+    if (t.done) li.className = "done";
+
+    const span = document.createElement("span");
+    span.className = "title";
+    span.textContent = t.title;
+
+    const badge = document.createElement("span");
+    badge.className = "badge " + t.priority;
+    badge.textContent = t.priority;
+
+    const toggle = document.createElement("button");
+    toggle.className = "btn-toggle";
+    toggle.textContent = t.done ? "已完成" : "未完成";
+    toggle.onclick = () => toggleTask(t);
+
+    const del = document.createElement("button");
+    del.className = "btn-del";
+    del.textContent = "删除";
+    del.onclick = () => deleteTask(t);
+
+    li.append(span, badge, toggle, del);
+    list.appendChild(li);
+  });
+}
+
+async function load() {
+  try {
+    const res = await fetch("/api/tasks");
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || res.status);
+    tasks = json;
+    clearError();
+    render();
+  } catch (e) { showError(e.message); }
+}
+
+async function addTask() {
+  const title = $("taskInput").value.trim();
+  if (!title) return;
+  try {
+    const res = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, priority: $("prioritySelect").value }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || res.status);
+    $("taskInput").value = "";
+    await load();
+  } catch (e) { showError(e.message); }
+}
+
+async function toggleTask(t) {
+  try {
+    const res = await fetch("/api/tasks/" + t.id, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: !t.done }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || res.status);
+    await load();
+  } catch (e) { showError(e.message); }
+}
+
+async function deleteTask(t) {
+  try {
+    const res = await fetch("/api/tasks/" + t.id, { method: "DELETE" });
+    if (!res.ok) throw new Error((await res.json()).error || res.status);
+    await load();
+  } catch (e) { showError(e.message); }
+}
+
+$("addBtn").onclick = addTask;
+$("taskInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addTask(); });
+$("filters").addEventListener("click", (e) => {
+  if (e.target.tagName !== "BUTTON") return;
+  filter = e.target.dataset.f;
+  document.querySelectorAll("#filters button").forEach((b) => b.classList.remove("active"));
+  e.target.classList.add("active");
+  render();
+});
+
+load();
+</script>
+</body>
+</html>
